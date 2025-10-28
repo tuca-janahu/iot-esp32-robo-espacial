@@ -1,43 +1,62 @@
 from flask import Flask, request, jsonify
-import json
+import sqlite3
 import os
 
 app = Flask(__name__)
+DB_FILE = "leituras.db"
 
-ARQUIVO = "leituras.json"
+# === Cria o banco e a tabela, se não existirem ===
+def criar_banco():
+    if not os.path.exists(DB_FILE):
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE leituras (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nivel REAL,
+                timestamp TEXT
+            )
+        ''')
+        conn.commit()
+        conn.close()
 
-# Garante que o arquivo exista
-if not os.path.exists(ARQUIVO):
-    with open(ARQUIVO, "w") as f:
-        json.dump([], f)
+criar_banco()
 
+# === Rota para receber dados do ESP32 ===
 @app.route('/dados', methods=['POST'])
 def receber_dados():
     try:
         data = request.get_json()
 
-        # Verifica se os dados vieram no formato certo
         if not data:
-            return jsonify({"status": "erro", "mensagem": "JSON inválido ou ausente"}), 400
+            return jsonify({"status": "erro", "mensagem": "JSON inválido"}), 400
 
         nivel = data.get('nivel')
         timestamp = data.get('timestamp')
 
-        # Lê o conteúdo atual
-        with open(ARQUIVO, "r") as f:
-            leituras = json.load(f)
-
-        # Adiciona a nova leitura
-        leituras.append({"nivel": nivel, "timestamp": timestamp})
-
-        # Grava novamente no arquivo
-        with open(ARQUIVO, "w") as f:
-            json.dump(leituras, f, indent=4)
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO leituras (nivel, timestamp) VALUES (?, ?)', (nivel, timestamp))
+        conn.commit()
+        conn.close()
 
         return jsonify({"status": "OK", "mensagem": "Dado salvo com sucesso"}), 200
 
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)}), 500
+
+
+# === Rota para visualizar dados gravados ===
+@app.route('/dados', methods=['GET'])
+def listar_dados():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM leituras ORDER BY id DESC')
+    linhas = cursor.fetchall()
+    conn.close()
+
+    dados = [{"id": l[0], "nivel": l[1], "timestamp": l[2]} for l in linhas]
+    return jsonify(dados)
 
 
 if __name__ == '__main__':
