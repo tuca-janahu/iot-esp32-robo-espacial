@@ -1,0 +1,7 @@
+.venv/
+iot-robo-venv/
+__pycache__/
+*.pyc
+*.db
+.env
+robo_lab.db*
