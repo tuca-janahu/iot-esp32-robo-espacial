@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .db import engine, SessionLocal, Base      # <— com ponto
 from .model import Leitura                      # <— com ponto
-...
+
 
 
 # ---------------- Config ----------------
