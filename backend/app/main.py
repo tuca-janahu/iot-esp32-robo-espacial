@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from .db import engine, SessionLocal, Base      # <— com ponto
-from .model import Leitura                      # <— com ponto
+from .db import engine, SessionLocal, Base     
+from .model import Leitura                      
 
 
 
@@ -26,7 +26,6 @@ MQTT_QOS    = int(os.getenv("MQTT_QOS", "1"))
 
 app = Flask(__name__)
 
-# garante que a(s) tabela(s) existam
 Base.metadata.create_all(bind=engine)
 
 # ---------------- Helpers ----------------
@@ -53,10 +52,10 @@ def parse_iso8601(value) -> datetime:
         s = s[:-1] + "+00:00"
     return datetime.fromisoformat(s)
 
-def _i(v):  # int opcional
+def _i(v): 
     return None if v is None else int(v)
 
-def _f(v):  # float opcional
+def _f(v):  
     return None if v is None else float(v)
 
 def handle_payload_from_mqtt(device_id: str, data: dict):
@@ -88,7 +87,7 @@ def handle_payload_from_mqtt(device_id: str, data: dict):
         try:
             s.commit()
         except IntegrityError:
-            s.rollback()  # idempotente: já inserido, ignore
+            s.rollback()  
             pass
 
 def make_mqtt_client():
@@ -134,7 +133,6 @@ def root():
 @app.get("/health")
 def health():
     try:
-        # simples ping ao banco
         with SessionLocal() as s:
             s.execute(select(1))
         return {"app": "ok", "db": "ok"}, 200
@@ -152,7 +150,7 @@ def post_leituras():
         device_id = require_header("X-Device-Id")
         idemp     = require_header("Idempotency-Key")
 
-        # valida UUID (idempotency-key precisa ser um UUID válido)
+        # valida UUID 
         try:
             uuid.UUID(idemp)
         except Exception:
@@ -173,8 +171,7 @@ def post_leituras():
             luminosidade=_i(data.get("luminosidade")),
             presenca=_i(data.get("presenca")),
             probabilidade_vida=_f(data.get("probabilidade_vida")),
-            # received_at tem default no modelo; se quiser forçar agora:
-            # received_at=datetime.now(timezone.utc),
+            
         )
 
         with SessionLocal() as s:
@@ -189,7 +186,6 @@ def post_leituras():
                 }, 201
             except IntegrityError:
                 s.rollback()
-                # idempotência: se já existe a mesma idempotency_key, retorne o existente
                 existing = s.execute(
                     select(Leitura).where(Leitura.idempotency_key == idemp)
                 ).scalar_one_or_none()
@@ -209,7 +205,7 @@ def post_leituras():
 
 @app.get("/leituras")
 def get_leituras():
-    # se quiser público, remova estas duas linhas
+   
     # auth = require_api_key()
     # if auth:
     #     return auth
